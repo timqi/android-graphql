@@ -1,6 +1,6 @@
-这个仓库是一份代码示例，并不能直接运行，但是你可以很轻松的将它集成到你的工程中。仓库依赖：[okhttp](https://github.com/square/okhttp), [rxjava](https://github.com/ReactiveX/RxJava) [DiskLruCache](https://github.com/JakeWharton/DiskLruCache)。
+这个仓库是一份代码示例，并不能直接运行，但是你可以很轻松的将它集成到你的工程中。仓库依赖：[okhttp](https://github.com/square/okhttp), [rxjava](https://github.com/ReactiveX/RxJava) [DiskLruCache](https://github.com/JakeWharton/DiskLruCache)
 
-### 使用效果：
+### 使用示例：
 
 编写 asset 中 graphql 目录下 `market/index` 文件
 
@@ -41,10 +41,11 @@ mOkGraphQL.queryFrom("market/index")
   }))
 ```
 
+### [原文](http://www.timqi.com/2018/03/07/android-graphql/)
 
 最近团队调研决定使用 GraphQL 方案替代 RestApi。Android 方面有个 Apollo 社区维护功能相对完整的库，对不同查询与缓存支持的比较完善，但是资源耗费相当严重，尤其是 codegen 对编译时的环境配置要求非常高，决定放弃这个库采用 rawhttp 的方式直接实现 GraphQL 协议。本文来讲讲对 GraphQL 协议支持过程的实现思路。
 
-首先，GraphQL 协议是自成体系不依赖下层传输的，也就是说我们可以理解为只要能够通信，我们按照 GraphQL 的通信协议就能完成数据交换。通常情况下这个协议的传输层使用 http(s) 的方式。那么就一下子拉近到了我们熟知的领域，完成一次 http 请求采用 okhttp,rxjava，缓存的处理使用 DiskLruCache， 站在巨人的肩膀上看的更远。
+首先，GraphQL 协议是自成体系不依赖下层传输的，也就是说我们可以理解为只要能够通信，按照 GraphQL 的通信协议就能完成数据交换。通常情况下这个协议的传输层使用 http(s) 的方式。那么就一下子拉近到了我们熟知的领域，完成一次 http 请求采用 okhttp,rxjava，缓存的处理使用 DiskLruCache， 站在巨人的肩膀上看的更远。
 
 构建一个使用 api 的统一入口，包括发起请求，配置缓存、okhttpclient、url 等等，由于参数比较多我们使用建造者模式
 
@@ -54,7 +55,7 @@ public class OkGraphQL {
   private OkHttpClient okHttpClient;
   private Cache cache;
 
-  ... Getter, Setter 方法
+  ... Getter 方法
 
   public static class Builder {
     private OkGraphQL okGraphQL;
@@ -153,29 +154,29 @@ okGraphQL = new OkGraphQL.Builder()
 
 接下来的重点是实现 GraphQL 协议，通常一个 GraphQL 的查询字符串都比较长，自然想到把每个查询放入 asset 中的每个文件里，然后通过合理的组织文件目录结构来编写每个查询，最后通过一个类把这些文件与所需要的参数组织成标准的 GraphQL 语句把请求发出去，并把结果合理回调
 
-设计了如下目录结构组织每个查询：
+设计了如下目录结构组织每个查询语句：
 
 ```
 graphql             //查询的根目录
     ├── fragments   //fragments的根目录
     │   │── coin
     │   └── ...
-    └── market 		//根据业务，可设多层文件夹
+    └── market    //根据业务，可设多层文件夹
         │── index
         └── ...
 ```
 
-然后再 OkGraphQL 中添加获取查询的入口
+然后在 OkGraphQL 中添加获取查询的入口
 
 ```java
 public Query queryFrom(String fileName) {
-	return this.query(Utils
-	    .renderFromAsset("graphql/" + fileName));
+  return this.query(Utils
+      .renderFromAsset("graphql/" + fileName));
 }
 
 public Mutation mutationFrom(String fileName) {
-	return this.mutation(Utils
-    	.renderFromAsset("graphql/" + fileName));
+  return this.mutation(Utils
+      .renderFromAsset("graphql/" + fileName));
 }
 ```
 
@@ -185,7 +186,7 @@ public Mutation mutationFrom(String fileName) {
 
 我们通过 BaseQuery 暴露出 variable 方法和 fragment 方法来接收相关参数，然后在 getContent 方法中将所有参数拼接为标准的 GraphQL 语句，最后通过 toObservable 方法返回 rxjava 形式的结果输出。
 
-然后一大重点是缓存，我们知道缓存的传统 http 请求的缓存可以用 url 做 key，但是在 GraphQL 中 url 通常是不会变的。因此我们选择将 GraphQL 的查询语句，也就是 getContent 的结果做 md5 作为缓存的 key，相应的我们只缓存有效数据，也就是 api 正常返回情况下的 data 数据。这样既减少的文件操作复杂度，增加了对缓存内容的可控性同时也能完全满足对业务场景的需要。根据业务模型我们定义了三种缓存策略
+然后一大重点是缓存，我们知道传统 http 请求的缓存可以用 url 做 key，但是在 GraphQL 中 url 通常是不会变的，而它的查询语句往往直接决定的查询的结果，因此我们选择将 GraphQL 的查询语句，也就是 getContent 的结果做 md5 作为缓存的 key，相应的我们只缓存有效数据，也就是 api 正常返回情况下的 data 数据。这样既减少了文件操作复杂度，增加了对缓存内容的可控性同时也能完全满足业务场景的需要。根据业务模型我们定义了三种缓存策略
 
 ```java
 public enum CachePolicy {
@@ -251,8 +252,8 @@ public class BaseQuery {
   }
 
   public String getContent() {
-  	// ...
-  	// 根据 GraphQL 标准语法拼装 query,prefix,variableValues,fragments
+    // ...
+    // 根据 GraphQL 标准语法拼装 query,prefix,variableValues,fragments
   }
 
   public <T> Observable<T> toObservable(Class<T> clz) {
@@ -264,7 +265,7 @@ public class BaseQuery {
 
       if (cachePolicy != CachePolicy.NOCACHE) {
 
-      	//取缓存策略
+        //取缓存策略
         String cachedString = okGraphQL.getCache().get(cacheKey);
         if (cachedString != null) {
           T bean = App.gson.fromJson(cachedString, clz);
@@ -331,7 +332,7 @@ public class BaseQuery {
         }
 
       } else if (resp.code() == 401 || resp.code() == 403) {
-      	// ...
+        // ...
         // Not authorized, trigger signout flow
       } else {
         subscriber.onError(new HttpException(resp.message(), resp.code()));
